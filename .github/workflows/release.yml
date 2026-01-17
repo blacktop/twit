@@ -1,0 +1,137 @@
+# Build Linux/Windows release binaries and upload to GitHub Release
+# macOS builds are handled by goreleaser locally
+#
+# Triggered by tag pushes (v*.*.*)
+# Uses cross-rs for Linux (handles OpenSSL via Docker containers)
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux x86_64
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            use_cross: true
+            archive: tar.gz
+            asset_os: Linux
+            asset_arch: x86_64
+
+          # Linux ARM64
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            use_cross: true
+            archive: tar.gz
+            asset_os: Linux
+            asset_arch: arm64
+
+          # Windows x86_64
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            use_cross: false
+            archive: zip
+            asset_os: Windows
+            asset_arch: x86_64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Install cross (Linux)
+        if: matrix.use_cross
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
+
+      - name: Build with cross (Linux)
+        if: matrix.use_cross
+        run: cross build --release --locked --target ${{ matrix.target }}
+
+      - name: Build with cargo (Windows)
+        if: "!matrix.use_cross"
+        run: cargo build --release --locked --target ${{ matrix.target }}
+
+      - name: Get version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Prepare release assets (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          mkdir -p release
+          cp target/${{ matrix.target }}/release/twit release/
+          cp README.md LICENSE release/
+          cd release
+          # Match goreleaser naming: twit_VERSION_OS_ARCH.tar.gz
+          tar -czvf ../twit_${{ steps.version.outputs.version }}_${{ matrix.asset_os }}_${{ matrix.asset_arch }}.tar.gz *
+
+      - name: Prepare release assets (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release
+          Copy-Item target/${{ matrix.target }}/release/twit.exe release/
+          Copy-Item README.md, LICENSE release/
+          # Match goreleaser naming: twit_VERSION_OS_ARCH.zip
+          Compress-Archive -Path release/* -DestinationPath twit_${{ steps.version.outputs.version }}_${{ matrix.asset_os }}_${{ matrix.asset_arch }}.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: twit-${{ matrix.target }}
+          path: twit_${{ steps.version.outputs.version }}_${{ matrix.asset_os }}_${{ matrix.asset_arch }}.${{ matrix.archive }}
+          if-no-files-found: error
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: List artifacts
+        run: ls -la artifacts/
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          fail_on_unmatched_files: true
+          # Don't generate notes - goreleaser handles the full release
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,65 @@
+[package]
+name = "twit"
+version = "0.1.0"
+edition = "2024"
+description = "A beautiful TUI client for Twitter/X"
+authors = ["blacktop"]
+license = "MIT"
+
+[dependencies]
+# TUI
+ratatui = { version = "0.30", features = ["unstable-rendered-line-info"] }
+ratatui-image = { version = "10", default-features = false, features = ["crossterm", "image-defaults"] }
+crossterm = "0.29"
+
+# Twitter auth (generates X-Client-Transaction-Id)
+x-client-transaction = { version = "0.1", default-features = false }
+
+# HTTP (pinned to 0.12 for x-client-transaction compatibility)
+reqwest = { version = "0.12", default-features = false, features = ["json", "cookies", "blocking", "rustls-tls-webpki-roots"] }
+
+# Async
+tokio = { version = "1", features = ["full"] }
+
+# Data serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+
+# Storage (embedded KV database)
+redb = "3"
+
+# Config paths (XDG)
+directories = "6"
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Utils
+anyhow = "1"
+thiserror = "2"
+chrono = { version = "0.4", features = ["serde"] }
+urlencoding = "2"
+image = "0.25"
+open = "5"  # Open URLs in browser
+filetime = "0.2"  # File modification time manipulation for LRU cache
+nerd-font-symbols = "0.3"  # Nerd Font icons for TUI
+unicode-segmentation = "1"  # Text segmentation
+unicode-width = "0.2"  # Character width calculation
+linkify = "0.10"  # URL extraction from tweet text
+lru = "0.16"  # LRU cache for extracted content
+readabilityrs = "0.1"  # Readability-based content extraction
+# AI SDKs - disable default features to avoid native-tls/openssl where possible
+async-openai = { version = "0.32", default-features = false, features = ["responses", "response-types", "audio", "rustls"] }
+gemini-rust = "1.7"  # No rustls feature available - requires native-tls
+base64 = "0.22"
+url = "2.5"
+rodio = "0.21"
+futures = "0.3"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+fm-rs = "0.1.3"
+
+[profile.release]
+lto = true
+strip = true

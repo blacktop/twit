@@ -1,0 +1,109 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj
+version: 2
+
+project_name: twit
+
+before:
+  hooks:
+    - rustup default stable
+    - cargo fetch --locked
+
+builds:
+  - id: twit
+    builder: rust
+    binary: twit
+    # Native cargo for macOS
+    # Note: fm-rs (FoundationModels) requires Apple Silicon - no x86_64 support
+    # Linux builds require CI with cross/Docker (gemini-rust needs native-tls)
+    command: build
+    flags:
+      - --release
+      - --locked
+    targets:
+      - aarch64-apple-darwin
+
+archives:
+  - id: default
+    formats:
+      - tar.gz
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "all" }}universal
+      {{- else if eq .Arch "amd64" }}x86_64
+      {{- else }}{{ .Arch }}{{ end }}
+    files:
+      - README.md
+      - LICENSE
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^ci:"
+      - Merge pull request
+      - Merge branch
+  groups:
+    - title: "New Features"
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: "Bug Fixes"
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: "Other"
+      order: 999
+
+release:
+  github:
+    owner: blacktop
+    name: twit-rs
+  draft: false
+  prerelease: auto
+  mode: replace
+  footer: |
+    ### Summary
+    **Full Changelog**: https://github.com/blacktop/twit-rs/compare/{{ .PreviousTag }}...{{ .Tag }}
+    ## Follow us
+    - [Twitter](https://twitter.com/blacktop__)
+    - [Mastodon](https://mastodon.social/@blacktop)
+    - [Bluesky](https://bsky.app/profile/blacktop.bsky.social)
+
+# Homebrew Cask for macOS distribution
+homebrew_casks:
+  - name: twit
+    ids:
+      - default
+    repository:
+      owner: blacktop
+      name: homebrew-tap
+      branch: main
+    homepage: https://github.com/blacktop/twit-rs
+    description: A beautiful TUI client for Twitter/X
+    license: MIT
+    # Remove quarantine for unsigned binary
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            Dir.glob("#{staged_path}/**/twit").each do |f|
+              system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", f]
+            end
+          end
+
+# Generate source archive
+source:
+  enabled: true
+  name_template: "{{ .ProjectName }}_{{ .Version }}_source"
+
+# Software Bill of Materials
+sboms:
+  - artifacts: archive

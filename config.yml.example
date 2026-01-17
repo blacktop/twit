@@ -1,0 +1,38 @@
+auth_token: "YOUR_AUTH_TOKEN"
+ct0: "YOUR_CT0"
+refresh_secs: 300
+tweet_count: 50
+show_images: true
+media_prefetch: all  # all | visible | nearby (for low-resource machines)
+image_cache_max_mb: 200  # LRU disk cache size limit
+cache_ttl_mins: 60
+tweet_max_width: 140
+theme: default  # default | vibrant
+debug: false  # enable debug logging to ~/.cache/twit/twit.log
+
+ai:
+  enabled: false
+  provider: openai  # openai | anthropic | google | openrouter | copilot | local | foundation-models
+  model: "gpt-5-nano-2025-08-07"
+  api_base: null
+  api_key: null
+  system_prompt: "You summarize links and tweets for a terminal reader."
+  summary_length: short  # short | medium | long
+  max_input_chars: 12000
+  max_output_tokens: 0
+  request_timeout_secs: 30
+  max_fetch_bytes: 2000000
+  cache_capacity: 128
+  summarize_links: true
+  summarize_tweets: true
+  summarize_images: true
+
+tts:
+  enabled: false
+  provider: say  # say | openai | google | elevenlabs
+  model: null
+  api_base: null
+  api_key: null
+  voice: null
+  rate_wpm: null
+  auto_speak_summaries: false
