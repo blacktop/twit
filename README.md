@@ -1,6 +1,18 @@
-# twit
-
-> A terminal UI client for Twitter/X.
+<p align="center">
+  <!--<a href="https://github.com/blacktop/twit"><img alt="Logo" src="https://raw.githubusercontent.com/blacktop/twit/refs/heads/main/docs/logo.svg" height="400"/></a>-->
+  <h1 align="center">twit</h1>
+  <h4><p align="center">A terminal UI client for Twitter/X</p></h4>
+  <p align="center">
+    <a href="https://github.com/blacktop/twit/actions" alt="Actions">
+          <img src="https://github.com/blacktop/twit/actions/workflows/release.yml/badge.svg" /></a>
+    <a href="https://github.com/blacktop/twit/releases/latest" alt="Downloads">
+          <img src="https://img.shields.io/github/downloads/blacktop/twit/total.svg" /></a>
+    <a href="https://github.com/blacktop/twit/releases" alt="GitHub Release">
+          <img src="https://img.shields.io/github/release/blacktop/twit.svg" /></a>
+    <a href="http://doge.mit-license.org" alt="LICENSE">
+          <img src="https://img.shields.io/:license-mit-blue.svg" /></a>
+</p>
+<br>
 
 ![demo](./docs/demo.gif)
 
