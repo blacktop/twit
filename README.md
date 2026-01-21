@@ -8,7 +8,7 @@
     <a href="https://github.com/blacktop/twit/releases/latest" alt="Downloads">
           <img src="https://img.shields.io/github/downloads/blacktop/twit/total.svg" /></a>
     <a href="https://github.com/blacktop/twit/releases" alt="GitHub Release">
-          <img src="https://img.shields.io/github/release/blacktop/twit.svg" /></a>
+          <img src="https://img.shields.io/github/v/release/blacktop/twit" /></a>
     <a href="http://doge.mit-license.org" alt="LICENSE">
           <img src="https://img.shields.io/:license-mit-blue.svg" /></a>
 </p>
