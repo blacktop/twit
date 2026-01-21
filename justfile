@@ -67,7 +67,7 @@ snapshot:
 # Build and publish release with goreleaser
 dist:
     goreleaser release --clean --timeout 60m --skip=validate
-    @bash -c 'set -euo pipefail; version="$$(just version)"; cp dist/homebrew/Casks/twit.rb ../homebrew-tap/Casks/twit.rb; cd ../homebrew-tap; git add Casks/twit.rb; git commit -m "Bump twit to version $$version"; git push'
+    # @bash -c 'set -euo pipefail; version="$$(just version)"; cp dist/homebrew/Casks/twit.rb ../homebrew-tap/Casks/twit.rb; cd ../homebrew-tap; git add Casks/twit.rb; git commit -m "Bump twit to version $$version"; git push'
 
 # Cross-build Linux binaries on macOS using cargo-zigbuild (requires Zig + cargo-zigbuild)
 zigbuild target="x86_64-unknown-linux-gnu":
