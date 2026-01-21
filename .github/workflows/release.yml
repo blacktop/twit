@@ -22,6 +22,8 @@ jobs:
   build:
     name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
+    env:
+      CARGO_BUILD_TARGET: ${{ matrix.target }}
     strategy:
       fail-fast: false
       matrix:
@@ -67,6 +69,9 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.target }}
+          cache-on-failure: true
+          workspaces: |
+            . -> target
 
       - name: Install cross (Linux)
         if: matrix.use_cross
