@@ -67,6 +67,7 @@ snapshot:
 # Build and publish release with goreleaser
 dist:
     goreleaser release --clean --timeout 60m --skip=validate
+    @bash -c 'set -euo pipefail; version="$$(just version)"; cp dist/homebrew/Casks/twit.rb ../homebrew-tap/Casks/twit.rb; cd ../homebrew-tap; git add Casks/twit.rb; git commit -m "Bump twit to version $$version"; git push'
 
 # Bump patch version, commit, tag, and push (requires cargo-release: cargo install cargo-release)
 bump: bump-patch
