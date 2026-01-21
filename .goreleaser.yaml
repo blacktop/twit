@@ -65,13 +65,13 @@ changelog:
 release:
   github:
     owner: blacktop
-    name: twit-rs
+    name: twit
   draft: false
   prerelease: auto
   mode: replace
   footer: |
     ### Summary
-    **Full Changelog**: https://github.com/blacktop/twit-rs/compare/{{ .PreviousTag }}...{{ .Tag }}
+    **Full Changelog**: https://github.com/blacktop/twit/compare/{{ .PreviousTag }}...{{ .Tag }}
     ## Follow us
     - [Twitter](https://twitter.com/blacktop__)
     - [Mastodon](https://mastodon.social/@blacktop)
@@ -86,7 +86,7 @@ homebrew_casks:
       owner: blacktop
       name: homebrew-tap
       branch: main
-    homepage: https://github.com/blacktop/twit-rs
+    homepage: https://github.com/blacktop/twit
     description: A beautiful TUI client for Twitter/X
     license: MIT
     # Remove quarantine for unsigned binary
