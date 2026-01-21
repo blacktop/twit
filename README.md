@@ -56,6 +56,18 @@ cargo build --release
 ./target/release/twit
 ```
 
+### Cross-build (macOS -> Linux) with cargo-zigbuild
+
+Requires Zig and cargo-zigbuild installed.
+
+```sh
+cargo install cargo-zigbuild
+rustup target add x86_64-unknown-linux-gnu
+cargo zigbuild --release --target x86_64-unknown-linux-gnu --no-default-features
+```
+
+Note: `--no-default-features` disables audio playback (ALSA) for cross builds. Use a Linux build environment or `cross` if you need audio enabled.
+
 
 ## Auth cookies (auth_token + ct0)
 

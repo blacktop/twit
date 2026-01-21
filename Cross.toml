@@ -9,11 +9,11 @@ passthrough = [
 # x86_64 Linux - install ALSA dev for rodio (audio playback)
 [target.x86_64-unknown-linux-gnu]
 pre-build = [
-    "apt-get update && apt-get install -y libasound2-dev pkg-config"
+    "apt-get update && apt-get install -y libasound2-dev pkg-config perl make"
 ]
 
 # ARM64 Linux - install ALSA dev for rodio (audio playback)
 [target.aarch64-unknown-linux-gnu]
 pre-build = [
-    "apt-get update && apt-get install -y libasound2-dev pkg-config"
+    "apt-get update && apt-get install -y libasound2-dev pkg-config perl make"
 ]

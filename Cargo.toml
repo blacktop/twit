@@ -52,10 +52,15 @@ readabilityrs = "0.1"  # Readability-based content extraction
 # AI SDKs - disable default features to avoid native-tls/openssl where possible
 async-openai = { version = "0.32", default-features = false, features = ["responses", "response-types", "audio", "rustls"] }
 gemini-rust = "1.7"  # No rustls feature available - requires native-tls
+native-tls = { version = "0.2", features = ["vendored"] } # Force vendored OpenSSL for native-tls (gemini-rust)
 base64 = "0.22"
 url = "2.5"
-rodio = "0.21"
+rodio = { version = "0.21", optional = true }
 futures = "0.3"
+
+[features]
+default = ["audio"]
+audio = ["rodio"]
 
 [target.'cfg(target_os = "macos")'.dependencies]
 fm-rs = "0.1.3"

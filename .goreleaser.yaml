@@ -7,15 +7,15 @@ project_name: twit
 before:
   hooks:
     - rustup default stable
+    - rustup target add x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu
     - cargo fetch --locked
 
 builds:
-  - id: twit
+  # macOS build - native cargo
+  # Note: fm-rs (FoundationModels) requires Apple Silicon - no x86_64 support
+  - id: twit-macos
     builder: rust
     binary: twit
-    # Native cargo for macOS
-    # Note: fm-rs (FoundationModels) requires Apple Silicon - no x86_64 support
-    # Linux builds require CI with cross/Docker (gemini-rust needs native-tls)
     command: build
     flags:
       - --release
@@ -23,8 +23,26 @@ builds:
     targets:
       - aarch64-apple-darwin
 
+  # Linux builds - zigbuild (cross-compile from macOS)
+  # Uses --no-default-features to disable audio (ALSA) for cross-compilation
+  # Audio falls back to system player via open::that()
+  - id: twit-linux
+    builder: rust
+    binary: twit
+    command: zigbuild
+    flags:
+      - --release
+      - --locked
+      - --no-default-features
+    targets:
+      - x86_64-unknown-linux-gnu
+      - aarch64-unknown-linux-gnu
+
 archives:
   - id: default
+    builds:
+      - twit-macos
+      - twit-linux
     formats:
       - tar.gz
     name_template: >-
@@ -81,7 +99,7 @@ release:
 homebrew_casks:
   - name: twit
     ids:
-      - default
+      - default  # Archive containing macOS build (goreleaser filters by OS)
     repository:
       owner: blacktop
       name: homebrew-tap

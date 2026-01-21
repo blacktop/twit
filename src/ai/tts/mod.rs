@@ -114,6 +114,7 @@ pub(crate) fn play_audio(path: &Path, cancel: Arc<AtomicBool>) -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "audio")]
 fn play_audio_with_rodio(path: &Path, cancel: &AtomicBool) -> Result<()> {
     let file = fs::File::open(path).context("Failed to open audio file")?;
     let reader = BufReader::new(file);
@@ -132,6 +133,12 @@ fn play_audio_with_rodio(path: &Path, cancel: &AtomicBool) -> Result<()> {
         thread::sleep(std::time::Duration::from_millis(50));
     }
     Ok(())
+}
+
+#[cfg(not(feature = "audio"))]
+fn play_audio_with_rodio(_path: &Path, _cancel: &AtomicBool) -> Result<()> {
+    // Audio feature disabled - will fall back to system player via open::that()
+    anyhow::bail!("inline audio disabled, using system player fallback");
 }
 
 #[cfg(target_os = "macos")]
