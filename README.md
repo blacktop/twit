@@ -1,6 +1,6 @@
 # twit
 
-A terminal UI client for Twitter/X.
+> A terminal UI client for Twitter/X.
 
 ![demo](./docs/demo.gif)
 
@@ -10,6 +10,10 @@ A terminal UI client for Twitter/X.
 
 > [!WARNING]  
 > This may violate Twitter/X ToS. Use a fresh burner account and do NOT reuse your primary account.
+
+> [!TIP]  
+> For the best experience, we recommend using Ghostty  
+> However, `twit` should still look good in other modern terminals.
 
 ## Getting Started
 
