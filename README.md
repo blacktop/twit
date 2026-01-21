@@ -2,6 +2,8 @@
 
 A terminal UI client for Twitter/X.
 
+![demo](./docs/demo.gif)
+
 ## Requirements and constraints
 
 - 2FA must be disabled for the account you use with this tool.
