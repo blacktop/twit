@@ -40,7 +40,7 @@ builds:
 
 archives:
   - id: default
-    builds:
+    ids:
       - twit-macos
       - twit-linux
     formats:
