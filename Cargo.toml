@@ -1,6 +1,6 @@
 [package]
 name = "twit"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2024"
 description = "A beautiful TUI client for Twitter/X"
 authors = ["blacktop"]
