@@ -67,7 +67,39 @@ snapshot:
 # Build and publish release with goreleaser
 dist: bump-patch
     goreleaser release --clean --timeout 60m --skip=validate
-    # @bash -c 'set -euo pipefail; version="$$(just version)"; cp dist/homebrew/Casks/twit.rb ../homebrew-tap/Casks/twit.rb; cd ../homebrew-tap; git add Casks/twit.rb; git commit -m "Bump twit to version $$version"; git push'
+    just update-cask
+
+# Update homebrew cask in tap from goreleaser output (run after dist)
+update-cask:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ROOT="{{ justfile_directory() }}"
+    TAP_DIR="${HOME}/Developer/Mine/blacktop/homebrew-tap"
+    CASK_SRC="${ROOT}/dist/homebrew/Casks/twit.rb"
+
+    if [[ ! -f "$CASK_SRC" ]]; then
+        echo "Error: $CASK_SRC not found. Run \`just dist\` first."
+        exit 1
+    fi
+
+    if [[ ! -d "$TAP_DIR" ]]; then
+        echo "Error: homebrew-tap not found at $TAP_DIR"
+        exit 1
+    fi
+
+    cp "$CASK_SRC" "$TAP_DIR/Casks/twit.rb"
+
+    cd "$TAP_DIR"
+    if git diff --quiet -- Casks/twit.rb; then
+        echo "No cask changes to commit."
+        exit 0
+    fi
+
+    VERSION=$(grep '^version' "$ROOT/Cargo.toml" | head -1 | sed 's/.*"\(.*\)".*/\1/')
+    git add Casks/twit.rb
+    git commit -m "Bump twit to version ${VERSION}"
+    git push
+    echo "Pushed cask to homebrew-tap"
 
 # Cross-build Linux binaries on macOS using cargo-zigbuild (requires Zig + cargo-zigbuild)
 zigbuild target="x86_64-unknown-linux-gnu":
