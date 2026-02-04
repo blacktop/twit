@@ -38,6 +38,17 @@ enum Commands {
         #[command(subcommand)]
         command: ConfigCommands,
     },
+    /// Follow a single user
+    Follow {
+        /// Username to follow (without @)
+        username: String,
+        /// Don't actually follow, just show what would happen
+        #[arg(long)]
+        dry_run: bool,
+        /// Skip confirmation prompt
+        #[arg(long, short = 'y')]
+        yes: bool,
+    },
     /// Clone another account's following list
     CloneFollows {
         /// Username to clone follows from (without @)
@@ -75,6 +86,11 @@ async fn main() -> Result<()> {
         Some(Commands::Config { command }) => match command {
             ConfigCommands::Verify => run_config_verify(),
         },
+        Some(Commands::Follow {
+            username,
+            dry_run,
+            yes,
+        }) => run_follow_user(&username, dry_run, yes).await,
         Some(Commands::CloneFollows {
             username,
             dry_run,
@@ -253,6 +269,57 @@ fn run_config_verify() -> Result<()> {
         println!("{}", report);
         anyhow::bail!("Configuration validation failed");
     }
+}
+
+async fn run_follow_user(username: &str, dry_run: bool, yes: bool) -> Result<()> {
+    let config = Config::load()
+        .context("No configuration found. Run `twit auth` to set up authentication.")?;
+
+    if config.debug {
+        logging::enable_debug();
+    }
+
+    let client = TwitterClient::new(config.auth_token, config.ct0)?;
+
+    let username = username.trim();
+    let username = username.trim_start_matches('@');
+    if username.is_empty() {
+        anyhow::bail!("username cannot be empty");
+    }
+
+    println!("Looking up @{}...", username);
+    let user_id = client
+        .get_user_id_by_screen_name(username)
+        .await
+        .with_context(|| format!("Failed to find user @{}", username))?;
+
+    println!("Found @{} (id: {}).", username, user_id);
+
+    if dry_run {
+        println!("[Dry run] Would follow @{}.", username);
+        return Ok(());
+    }
+
+    if !yes {
+        print!("Proceed with following @{}? [y/N] ", username);
+        io::stdout().flush()?;
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+
+        if !input.trim().eq_ignore_ascii_case("y") {
+            println!("Aborted.");
+            return Ok(());
+        }
+    }
+
+    client
+        .follow_user(&user_id)
+        .await
+        .with_context(|| format!("Failed to follow @{}", username))?;
+
+    println!("✓ Followed @{}.", username);
+
+    Ok(())
 }
 
 async fn run_clone_follows(
