@@ -446,6 +446,31 @@ impl TwitterClient {
             .map(|dt| dt.with_timezone(&Utc))
             .unwrap_or_else(Utc::now);
 
+        let optional_str = |obj: &Value, key: &str| -> Option<String> {
+            obj.get(key)
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.is_empty())
+                .map(String::from)
+        };
+
+        let urls = legacy
+            .get("entities")
+            .and_then(|e| e.get("urls"))
+            .and_then(|u| u.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|u| {
+                        let expanded = u.get("expanded_url")?.as_str()?;
+                        Some(crate::twitter::UrlEntity {
+                            url: u.str_at("url").to_string(),
+                            expanded_url: expanded.to_string(),
+                            display_url: u.str_at("display_url").to_string(),
+                        })
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+
         Some(Tweet {
             id: tweet_data.str_at("rest_id").to_string(),
             text: legacy.str_at("full_text").to_string(),
@@ -455,10 +480,17 @@ impl TwitterClient {
             retweet_count: legacy.u64_at("retweet_count"),
             like_count: legacy.u64_at("favorite_count"),
             reply_count: legacy.u64_at("reply_count"),
+            bookmark_count: legacy.u64_at("bookmark_count"),
+            quote_count: legacy.u64_at("quote_count"),
             is_retweet,
             retweeted_by,
             is_quote: quoted_tweet.is_some(),
             quoted_tweet,
+            conversation_id: optional_str(legacy, "conversation_id_str"),
+            in_reply_to_status_id: optional_str(legacy, "in_reply_to_status_id_str"),
+            in_reply_to_screen_name: optional_str(legacy, "in_reply_to_screen_name"),
+            lang: optional_str(legacy, "lang"),
+            urls,
         })
     }
 

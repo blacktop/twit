@@ -11,10 +11,17 @@ pub struct Tweet {
     pub retweet_count: u64,
     pub like_count: u64,
     pub reply_count: u64,
+    pub bookmark_count: u64,
+    pub quote_count: u64,
     pub is_retweet: bool,
     pub retweeted_by: Option<String>,
     pub is_quote: bool,
     pub quoted_tweet: Option<Box<Tweet>>,
+    pub conversation_id: Option<String>,
+    pub in_reply_to_status_id: Option<String>,
+    pub in_reply_to_screen_name: Option<String>,
+    pub lang: Option<String>,
+    pub urls: Vec<UrlEntity>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -35,6 +42,13 @@ pub struct Media {
     pub height: u32,
     /// Preview/thumbnail URL for videos
     pub preview_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UrlEntity {
+    pub url: String,
+    pub expanded_url: String,
+    pub display_url: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

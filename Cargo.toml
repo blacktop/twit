@@ -68,3 +68,8 @@ fm-rs = "0.1.3"
 [profile.release]
 lto = true
 strip = true
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"

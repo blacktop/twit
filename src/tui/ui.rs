@@ -16,7 +16,8 @@ use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
 use crate::config::Theme;
-use crate::tui::app::App;
+use crate::tui::shell::Shell;
+use crate::tui::view::timeline::{TimelineView, get_tweet_image_urls};
 use crate::twitter::{MediaType, Tweet};
 
 // Nerd Font icons for tweet stats (more integrated with TUI than emojis)
@@ -125,8 +126,13 @@ fn truncate_to_width(line: &str, max_width: usize) -> String {
 }
 
 /// Main render function
-pub fn render(frame: &mut Frame, app: &mut App) {
-    let theme = ThemeColors::from_theme(app.config.theme);
+pub fn render(
+    frame: &mut Frame,
+    view: &mut TimelineView,
+    shell: &mut Shell,
+    show_help: bool,
+) {
+    let theme = ThemeColors::from_theme(shell.config.theme);
 
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -137,10 +143,10 @@ pub fn render(frame: &mut Frame, app: &mut App) {
         ])
         .split(frame.area());
 
-    render_header(frame, app, chunks[0], &theme);
-    render_main_content(frame, app, chunks[1], &theme);
-    render_status_bar(frame, app, chunks[2], &theme);
-    if app.show_help {
+    render_header(frame, view, chunks[0], &theme);
+    render_main_content(frame, view, shell, chunks[1], &theme);
+    render_status_bar(frame, view, shell, chunks[2], &theme);
+    if show_help {
         render_help_popup(frame, frame.area(), &theme);
     }
 }
@@ -233,7 +239,7 @@ fn render_help_popup(frame: &mut Frame, area: Rect, theme: &ThemeColors) {
 }
 
 /// Render the header with title and last updated time on the right
-fn render_header(frame: &mut Frame, app: &App, area: Rect, theme: &ThemeColors) {
+fn render_header(frame: &mut Frame, view: &TimelineView, area: Rect, theme: &ThemeColors) {
     let block = Block::default().borders(Borders::ALL).dim();
     let inner = block.inner(area);
     frame.render_widget(block, area);
@@ -247,7 +253,7 @@ fn render_header(frame: &mut Frame, app: &App, area: Rect, theme: &ThemeColors) 
     };
 
     // Left side: title with Twitter bird icon
-    let title_spans = if app.loading {
+    let title_spans = if view.loading {
         vec![
             Span::styled(format!("{} ", fa::FA_TWITTER), Style::default().cyan()),
             Span::styled("twit - Loading...", Style::default().cyan().bold()),
@@ -263,8 +269,8 @@ fn render_header(frame: &mut Frame, app: &App, area: Rect, theme: &ThemeColors) 
     frame.render_widget(title_widget, padded);
 
     // Right side: last updated (if available and not loading)
-    if !app.loading
-        && let Some(last_refresh) = app.last_refresh
+    if !view.loading
+        && let Some(last_refresh) = view.last_refresh
     {
         let updated_text = format_last_updated(&last_refresh);
         let updated_widget = Paragraph::new(Span::styled(
@@ -297,13 +303,19 @@ fn is_portrait_layout(area: Rect) -> bool {
 /// Layout adapts based on terminal aspect ratio:
 /// - Portrait (tall): side panel below timeline
 /// - Landscape (wide): side panel right of timeline
-fn render_main_content(frame: &mut Frame, app: &mut App, area: Rect, theme: &ThemeColors) {
+fn render_main_content(
+    frame: &mut Frame,
+    view: &mut TimelineView,
+    shell: &mut Shell,
+    area: Rect,
+    theme: &ThemeColors,
+) {
     let show_summary_panel =
-        app.summary_loading || app.summary.is_some() || app.summary_error.is_some();
-    let selected_has_image = app.images_enabled
-        && app
+        view.summary_loading || view.summary.is_some() || view.summary_error.is_some();
+    let selected_has_image = shell.images_enabled
+        && view
             .tweets
-            .get(app.selected)
+            .get(view.selected)
             .is_some_and(|t| t.media.iter().any(|m| m.media_type == MediaType::Photo));
 
     #[derive(Clone, Copy)]
@@ -315,15 +327,15 @@ fn render_main_content(frame: &mut Frame, app: &mut App, area: Rect, theme: &The
 
     let side_panel = if show_summary_panel {
         SidePanel::Summary
-    } else if selected_has_image && app.image_manager.is_some() {
+    } else if selected_has_image && shell.image_manager.is_some() {
         SidePanel::Image
     } else {
         SidePanel::None
     };
 
     if matches!(side_panel, SidePanel::None) {
-        app.set_summary_area(None);
-        render_timeline(frame, app, area, theme);
+        view.set_summary_area(None);
+        render_timeline(frame, view, shell, area, theme);
         return;
     }
 
@@ -345,35 +357,35 @@ fn render_main_content(frame: &mut Frame, app: &mut App, area: Rect, theme: &The
         .constraints(split)
         .split(area);
 
-    render_timeline(frame, app, chunks[0], theme);
+    render_timeline(frame, view, shell, chunks[0], theme);
 
     match side_panel {
         SidePanel::Summary => {
-            app.set_summary_area(Some(chunks[1]));
-            render_summary_panel(frame, app, chunks[1], theme);
+            view.set_summary_area(Some(chunks[1]));
+            render_summary_panel(frame, view, chunks[1], theme);
         }
         SidePanel::Image => {
-            app.set_summary_area(None);
-            render_image_panel(frame, app, chunks[1]);
+            view.set_summary_area(None);
+            render_image_panel(frame, view, shell, chunks[1]);
         }
         SidePanel::None => unreachable!(),
     }
 }
 
-fn render_summary_panel(frame: &mut Frame, app: &mut App, area: Rect, theme: &ThemeColors) {
+fn render_summary_panel(frame: &mut Frame, view: &mut TimelineView, area: Rect, theme: &ThemeColors) {
     let mut lines: Vec<Line> = Vec::new();
 
-    if app.summary_loading {
+    if view.summary_loading {
         lines.push(Line::from(Span::styled(
             "Summarizing...",
             Style::default().dim(),
         )));
-    } else if let Some(error) = &app.summary_error {
+    } else if let Some(error) = &view.summary_error {
         lines.push(Line::from(Span::styled(
             error.clone(),
             Style::default().red(),
         )));
-    } else if let Some(summary) = &app.summary {
+    } else if let Some(summary) = &view.summary {
         lines.push(Line::from(Span::styled(
             format!("{} · {}", summary.provider, summary.model),
             Style::default().fg(theme.stats),
@@ -406,15 +418,15 @@ fn render_summary_panel(frame: &mut Frame, app: &mut App, area: Rect, theme: &Th
     } else {
         panel.line_count(inner.width)
     };
-    app.set_summary_scroll_bounds(content_lines, inner.height);
-    let scroll_offset = u16::try_from(app.summary_scroll).unwrap_or(u16::MAX);
+    view.set_summary_scroll_bounds(content_lines, inner.height);
+    let scroll_offset = u16::try_from(view.summary_scroll).unwrap_or(u16::MAX);
     panel = panel.scroll((scroll_offset, 0));
 
     frame.render_widget(panel, area);
 
     if content_lines > inner.height as usize {
         let mut state = ScrollbarState::new(content_lines)
-            .position(app.summary_scroll)
+            .position(view.summary_scroll)
             .viewport_content_length(inner.height as usize);
         let scrollbar = Scrollbar::default().orientation(ScrollbarOrientation::VerticalRight);
         frame.render_stateful_widget(scrollbar, inner, &mut state);
@@ -422,8 +434,14 @@ fn render_summary_panel(frame: &mut Frame, app: &mut App, area: Rect, theme: &Th
 }
 
 /// Render the tweet timeline with inline avatars
-fn render_timeline(frame: &mut Frame, app: &mut App, area: Rect, theme: &ThemeColors) {
-    if let Some(error) = &app.error {
+fn render_timeline(
+    frame: &mut Frame,
+    view: &TimelineView,
+    shell: &mut Shell,
+    area: Rect,
+    theme: &ThemeColors,
+) {
+    if let Some(error) = &view.error {
         let error_text = Paragraph::new(format!("Error: {}", error))
             .red()
             .block(
@@ -437,7 +455,7 @@ fn render_timeline(frame: &mut Frame, app: &mut App, area: Rect, theme: &ThemeCo
         return;
     }
 
-    let timeline_len = app.timeline_len();
+    let timeline_len = view.timeline_len();
     if timeline_len == 0 {
         let empty = Paragraph::new("No tweets to display. Press 'r' to refresh.")
             .dim()
@@ -446,11 +464,11 @@ fn render_timeline(frame: &mut Frame, app: &mut App, area: Rect, theme: &ThemeCo
         return;
     }
 
-    let mut title = format!(" {} tweets ", app.tweets.len());
-    if app.has_more() {
+    let mut title = format!(" {} tweets ", view.tweets.len());
+    if view.has_more() {
         title.push_str("+ more ");
     }
-    if app.images_enabled {
+    if shell.images_enabled {
         title.push_str("[i: toggle images] ");
     }
 
@@ -464,12 +482,12 @@ fn render_timeline(frame: &mut Frame, app: &mut App, area: Rect, theme: &ThemeCo
     let half_visible = visible_rows / 2;
 
     // Center selection in view when possible
-    let scroll_offset = if app.selected < half_visible {
+    let scroll_offset = if view.selected < half_visible {
         0
-    } else if app.selected + half_visible >= timeline_len {
+    } else if view.selected + half_visible >= timeline_len {
         timeline_len.saturating_sub(visible_rows)
     } else {
-        app.selected.saturating_sub(half_visible)
+        view.selected.saturating_sub(half_visible)
     };
 
     // Collect visible tweet indices to avoid borrow issues
@@ -492,11 +510,11 @@ fn render_timeline(frame: &mut Frame, app: &mut App, area: Rect, theme: &ThemeCo
             height: TWEET_ROW_HEIGHT,
         };
 
-        let is_selected = i == app.selected;
-        if i < app.tweets.len() {
-            render_tweet_row(frame, app, i, tweet_area, is_selected, theme);
+        let is_selected = i == view.selected;
+        if i < view.tweets.len() {
+            render_tweet_row(frame, view, shell, i, tweet_area, is_selected, theme);
         } else {
-            render_load_more_row(frame, app, tweet_area, is_selected, theme);
+            render_load_more_row(frame, view, tweet_area, is_selected, theme);
         }
 
         y += TWEET_ROW_HEIGHT;
@@ -508,7 +526,7 @@ fn render_timeline(frame: &mut Frame, app: &mut App, area: Rect, theme: &ThemeCo
             .begin_symbol(Some("▲"))
             .end_symbol(Some("▼"));
 
-        let mut scrollbar_state = ScrollbarState::new(timeline_len).position(app.selected);
+        let mut scrollbar_state = ScrollbarState::new(timeline_len).position(view.selected);
 
         frame.render_stateful_widget(
             scrollbar,
@@ -524,23 +542,24 @@ fn render_timeline(frame: &mut Frame, app: &mut App, area: Rect, theme: &ThemeCo
 /// Render a single tweet row with avatar
 fn render_tweet_row(
     frame: &mut Frame,
-    app: &mut App,
+    view: &TimelineView,
+    shell: &mut Shell,
     tweet_idx: usize,
     area: Rect,
     is_selected: bool,
     theme: &ThemeColors,
 ) {
-    let Some(tweet) = app.tweets.get(tweet_idx) else {
+    let Some(tweet) = view.tweets.get(tweet_idx) else {
         return;
     };
 
     // Clone what we need to avoid borrow issues
     let user_name = tweet.user.name.clone();
     let avatar_url = tweet.user.avatar_url_bigger();
-    let images_enabled = app.images_enabled;
+    let images_enabled = shell.images_enabled;
 
-    // Format content before borrowing app mutably
-    let max_width = app.config.tweet_max_width;
+    // Format content before borrowing shell mutably
+    let max_width = shell.config.tweet_max_width;
     let content = format_tweet_compact(tweet, is_selected && images_enabled, max_width, theme);
 
     // Split into avatar column and content
@@ -553,7 +572,7 @@ fn render_tweet_row(
         .split(area);
 
     // Render avatar with padding on all sides
-    render_avatar(frame, app, &avatar_url, &user_name, chunks[0]);
+    render_avatar(frame, shell, &avatar_url, &user_name, chunks[0]);
 
     // Render tweet content with word wrapping
     // Use subtle background highlight for selection (not jarring white reversed)
@@ -570,12 +589,12 @@ fn render_tweet_row(
 
 fn render_load_more_row(
     frame: &mut Frame,
-    app: &App,
+    view: &TimelineView,
     area: Rect,
     is_selected: bool,
     theme: &ThemeColors,
 ) {
-    let label = if app.loading_more {
+    let label = if view.loading_more {
         "Loading more..."
     } else {
         "[ Load more... ]"
@@ -595,19 +614,19 @@ fn render_load_more_row(
 }
 
 /// Render user avatar with padding on all sides
-fn render_avatar(frame: &mut Frame, app: &mut App, avatar_url: &str, user_name: &str, area: Rect) {
+fn render_avatar(frame: &mut Frame, shell: &mut Shell, avatar_url: &str, user_name: &str, area: Rect) {
     let padded_area = area.inner(ratatui::layout::Margin {
         horizontal: AVATAR_PADDING,
         vertical: AVATAR_PADDING,
     });
 
-    let Some(ref mut image_manager) = app.image_manager else {
-        render_avatar_placeholder(frame, padded_area, user_name, avatar_url, app.config.theme);
+    let Some(ref mut image_manager) = shell.image_manager else {
+        render_avatar_placeholder(frame, padded_area, user_name, avatar_url, shell.config.theme);
         return;
     };
 
-    if !app.images_enabled || avatar_url.is_empty() {
-        render_avatar_placeholder(frame, padded_area, user_name, avatar_url, app.config.theme);
+    if !shell.images_enabled || avatar_url.is_empty() {
+        render_avatar_placeholder(frame, padded_area, user_name, avatar_url, shell.config.theme);
         return;
     }
 
@@ -615,7 +634,7 @@ fn render_avatar(frame: &mut Frame, app: &mut App, avatar_url: &str, user_name: 
         let image_widget = StatefulImage::new().resize(Resize::Fit(None));
         frame.render_stateful_widget(image_widget, padded_area, protocol);
     } else {
-        render_avatar_placeholder(frame, padded_area, user_name, avatar_url, app.config.theme);
+        render_avatar_placeholder(frame, padded_area, user_name, avatar_url, shell.config.theme);
     }
 }
 
@@ -717,17 +736,17 @@ fn render_image_placeholder(frame: &mut Frame, area: Rect, key: &str, theme: The
 }
 
 /// Render the image panel for the selected tweet (supports multiple images with h/l scrolling)
-fn render_image_panel(frame: &mut Frame, app: &mut App, area: Rect) {
-    let image_urls: Vec<String> = app
+fn render_image_panel(frame: &mut Frame, view: &TimelineView, shell: &mut Shell, area: Rect) {
+    let image_urls: Vec<String> = view
         .tweets
-        .get(app.selected)
-        .map(|t| app.get_tweet_image_urls(t))
+        .get(view.selected)
+        .map(get_tweet_image_urls)
         .unwrap_or_default();
 
     let image_count = image_urls.len();
 
     let title = if image_count > 1 {
-        format!(" Image {}/{} (h/l) ", app.image_scroll + 1, image_count)
+        format!(" Image {}/{} (h/l) ", view.image_scroll + 1, image_count)
     } else {
         " Image ".to_string()
     };
@@ -736,13 +755,13 @@ fn render_image_panel(frame: &mut Frame, app: &mut App, area: Rect) {
     let inner_area = block.inner(area);
     frame.render_widget(block, area);
 
-    let Some(current_url) = image_urls.get(app.image_scroll.min(image_count.saturating_sub(1)))
+    let Some(current_url) = image_urls.get(view.image_scroll.min(image_count.saturating_sub(1)))
     else {
         return;
     };
 
-    let Some(ref mut image_manager) = app.image_manager else {
-        render_image_placeholder(frame, inner_area, current_url, app.config.theme);
+    let Some(ref mut image_manager) = shell.image_manager else {
+        render_image_placeholder(frame, inner_area, current_url, shell.config.theme);
         return;
     };
 
@@ -750,7 +769,7 @@ fn render_image_panel(frame: &mut Frame, app: &mut App, area: Rect) {
         let image_widget = StatefulImage::new().resize(Resize::Scale(None));
         frame.render_stateful_widget(image_widget, inner_area, protocol);
     } else {
-        render_image_placeholder(frame, inner_area, current_url, app.config.theme);
+        render_image_placeholder(frame, inner_area, current_url, shell.config.theme);
     }
 }
 
@@ -917,18 +936,24 @@ fn format_tweet_compact(
 }
 
 /// Render the status bar with styled key legend
-fn render_status_bar(frame: &mut Frame, app: &App, area: Rect, theme: &ThemeColors) {
-    let images_status = if app.images_enabled { "on" } else { "off" };
-    let ai_provider = app.config.ai.provider.clone();
+fn render_status_bar(
+    frame: &mut Frame,
+    view: &TimelineView,
+    shell: &Shell,
+    area: Rect,
+    theme: &ThemeColors,
+) {
+    let images_status = if shell.images_enabled { "on" } else { "off" };
+    let ai_provider = shell.config.ai.provider.clone();
     let show_summary_panel =
-        app.summary_loading || app.summary.is_some() || app.summary_error.is_some();
+        view.summary_loading || view.summary.is_some() || view.summary_error.is_some();
 
     let mut spans: Vec<Span> = Vec::new();
 
     // Left padding
     spans.push(" ".into());
 
-    if app.loading {
+    if view.loading {
         spans.push(Span::styled("Loading...", Style::default().dim()));
     } else {
         // Keys in cyan (like header), descriptions in muted gray
