@@ -107,15 +107,14 @@ homebrew_casks:
     homepage: https://github.com/blacktop/twit
     description: A beautiful TUI client for Twitter/X
     license: MIT
-    # Remove quarantine for unsigned binary
-    hooks:
-      post:
-        install: |
-          if OS.mac?
-            Dir.glob("#{staged_path}/**/twit").each do |f|
-              system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", f]
-            end
-          end
+    # Use structured steps; hooks.post.install emits deprecated postflight.
+    # Escape Homebrew's install-time token through GoReleaser's template pass.
+    custom_block: |
+      postflight_steps do
+        on_macos do
+          run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ "{{staged_path}}" }}/twit"]
+        end
+      end
 
 # Generate source archive
 source:
